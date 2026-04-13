@@ -79,11 +79,21 @@ class APIError extends Error {
 
 function getBaseUrl(): string {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE
+  console.log("[v0] NEXT_PUBLIC_API_BASE value:", baseUrl)
+  
   if (!baseUrl) {
     throw new APIError(
       "NEXT_PUBLIC_API_BASE environment variable is not set. Please configure your backend URL."
     )
   }
+  
+  // Validate that it's a proper URL
+  if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+    throw new APIError(
+      `NEXT_PUBLIC_API_BASE must be a full URL starting with http:// or https://. Current value: "${baseUrl}"`
+    )
+  }
+  
   return baseUrl.replace(/\/$/, "") // Remove trailing slash if present
 }
 
