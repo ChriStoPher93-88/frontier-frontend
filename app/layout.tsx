@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Frontier Command MVP',
-  description: 'Coordinate-aware command console for EVE Frontier Smart Assemblies',
+  title: 'Frontier Operator Console | EVE Frontier dApp',
+  description: 'Production-ready Operator Console for EVE Frontier Smart Assemblies. Control Smart Storage Units, Smart Gates, Smart Turrets, and Network Nodes.',
   generator: 'v0.app',
   icons: {
     icon: [
