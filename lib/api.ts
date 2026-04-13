@@ -79,7 +79,6 @@ class APIError extends Error {
 
 function getBaseUrl(): string {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE
-  console.log("[v0] NEXT_PUBLIC_API_BASE value:", baseUrl)
   
   if (!baseUrl) {
     throw new APIError(
