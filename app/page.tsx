@@ -1,100 +1,194 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { CommandForm } from "@/components/command-form"
-import { PlanOutput } from "@/components/plan-output"
-import { MetaInfo } from "@/components/meta-info"
+import { useState, useEffect, useCallback } from "react"
+import { OperatorChat } from "@/components/operator-chat"
+import { DraftPlanPanel } from "@/components/draft-plan-panel"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000"
-
-interface MetaData {
-  stack_network: string
-  stack_language: string
-  wallet_provider: string
+interface Assembly {
+  assembly_id: string
+  name: string
+  component_type: string
+  world_position: {
+    system_id: string
+    x: number
+    y: number
+    z: number
+  }
 }
 
-export default function HomePage() {
-  const [meta, setMeta] = useState<MetaData | null>(null)
-  const [metaLoading, setMetaLoading] = useState(true)
-  const [metaError, setMetaError] = useState<string | null>(null)
-  const [output, setOutput] = useState("No plan yet.")
-  const [isGenerating, setIsGenerating] = useState(false)
+interface DraftActionPlan {
+  [key: string]: unknown
+}
 
+interface ChatResponse {
+  session_id?: string
+  message?: string
+  draft_action_plan?: DraftActionPlan
+  error?: string
+  [key: string]: unknown
+}
+
+const DEFAULT_BACKEND_URL = "http://localhost:8000"
+
+export default function HomePage() {
+  const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [assemblies, setAssemblies] = useState<Assembly[]>([])
+  const [selectedAssemblyId, setSelectedAssemblyId] = useState("")
+  const [walletAddress, setWalletAddress] = useState("")
+  const [message, setMessage] = useState("Enable broker mode on Fuel Depot Alpha")
+  const [reply, setReply] = useState<ChatResponse | null>(null)
+  const [draftPlan, setDraftPlan] = useState<DraftActionPlan | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [assembliesLoading, setAssembliesLoading] = useState(false)
+
+  // Load backend URL from localStorage on mount
   useEffect(() => {
-    async function loadMeta() {
-      try {
-        const res = await fetch(`${API_BASE}/api/meta`)
-        if (!res.ok) throw new Error("Failed to fetch metadata")
-        const data = await res.json()
-        setMeta(data)
-      } catch {
-        setMetaError("Could not connect to API server. Make sure your backend is running.")
-      } finally {
-        setMetaLoading(false)
-      }
+    const saved = localStorage.getItem("frontier_backend_url")
+    if (saved) {
+      setBackendUrl(saved)
     }
-    loadMeta()
   }, [])
 
-  const handleGenerate = async (formData: {
-    wallet: string
-    componentType: string
-    componentId: string
-    label: string
-    systemId: string
-    coordLabel: string
-    x: string
-    y: string
-    z: string
-    coordSource: string
-    command: string
-  }) => {
-    setIsGenerating(true)
-    setOutput("Generating plan...")
+  // Save backend URL to localStorage when it changes
+  const handleBackendUrlChange = (url: string) => {
+    setBackendUrl(url)
+    localStorage.setItem("frontier_backend_url", url.trim())
+  }
 
+  // Load assemblies from backend
+  const loadAssemblies = useCallback(async () => {
+    setAssembliesLoading(true)
     try {
-      const body = {
-        wallet_address: formData.wallet,
-        command: formData.command,
-        target: {
-          component_type: formData.componentType,
-          component_id: formData.componentId || null,
-          label: formData.label || null,
-          world_position: {
-            system_id: formData.systemId,
-            x: Number(formData.x),
-            y: Number(formData.y),
-            z: Number(formData.z),
-            label: formData.coordLabel || null,
-            source: formData.coordSource,
-          },
-        },
-        current_config_snapshot: {},
-      }
+      const res = await fetch(`${backendUrl}/api/assemblies`)
+      if (!res.ok) throw new Error("Failed to fetch assemblies")
+      const data = await res.json()
+      setAssemblies(data)
+    } catch (error) {
+      setReply({
+        error: "Unable to load assemblies",
+        detail: String(error),
+      })
+    } finally {
+      setAssembliesLoading(false)
+    }
+  }, [backendUrl])
 
-      const res = await fetch(`${API_BASE}/api/generate`, {
+  useEffect(() => {
+    loadAssemblies()
+  }, [loadAssemblies])
+
+  const sendChat = async () => {
+    setIsLoading(true)
+    try {
+      const selectedTarget = selectedAssemblyId
+        ? { assembly_id: selectedAssemblyId }
+        : null
+
+      const res = await fetch(`${backendUrl}/api/operator/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          session_id: sessionId,
+          wallet_address: walletAddress || null,
+          message,
+          selected_target: selectedTarget,
+        }),
       })
 
-      if (!res.ok) throw new Error("Failed to generate plan")
-
-      const data = await res.json()
-      setOutput(JSON.stringify(data, null, 2))
-    } catch {
-      setOutput("Error: Could not generate plan. Make sure your backend is running.")
+      const data: ChatResponse = await res.json()
+      if (data.session_id) {
+        setSessionId(data.session_id)
+      }
+      setReply(data)
+      if (data.draft_action_plan) {
+        setDraftPlan(data.draft_action_plan)
+      }
+    } catch (error) {
+      setReply({
+        error: "Failed to send command",
+        detail: String(error),
+      })
     } finally {
-      setIsGenerating(false)
+      setIsLoading(false)
+    }
+  }
+
+  const approvePlan = async () => {
+    setIsLoading(true)
+    try {
+      const res = await fetch(`${backendUrl}/api/operator/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId }),
+      })
+      const data = await res.json()
+      setReply(data)
+    } catch (error) {
+      setReply({
+        error: "Failed to approve plan",
+        detail: String(error),
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const resetTarget = async () => {
+    setIsLoading(true)
+    try {
+      const res = await fetch(`${backendUrl}/api/operator/reset-target`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId }),
+      })
+      const data = await res.json()
+      setReply(data)
+      setDraftPlan(null)
+    } catch (error) {
+      setReply({
+        error: "Failed to reset target",
+        detail: String(error),
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
   return (
     <main className="min-h-screen py-8">
-      <div className="mx-auto max-w-4xl px-6 space-y-6">
-        <MetaInfo meta={meta} loading={metaLoading} error={metaError} />
-        <CommandForm onGenerate={handleGenerate} isLoading={isGenerating} />
-        <PlanOutput output={output} />
+      <div className="mx-auto max-w-6xl px-6">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">
+            Frontier Operator Console
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            Custom dApp target for Smart Assembly command control. Uses Frontier
+            terms: Smart Storage Unit, Smart Gate, Smart Turret, Network Node,
+            Regional market, Eve Vault.
+          </p>
+        </header>
+
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <OperatorChat
+            backendUrl={backendUrl}
+            onBackendUrlChange={handleBackendUrlChange}
+            walletAddress={walletAddress}
+            onWalletAddressChange={setWalletAddress}
+            assemblies={assemblies}
+            assembliesLoading={assembliesLoading}
+            selectedAssemblyId={selectedAssemblyId}
+            onSelectedAssemblyChange={setSelectedAssemblyId}
+            message={message}
+            onMessageChange={setMessage}
+            reply={reply}
+            isLoading={isLoading}
+            onSendChat={sendChat}
+            onApprovePlan={approvePlan}
+            onResetTarget={resetTarget}
+          />
+          <DraftPlanPanel plan={draftPlan} />
+        </div>
       </div>
     </main>
   )
