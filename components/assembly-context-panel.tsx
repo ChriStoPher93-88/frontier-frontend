@@ -9,23 +9,23 @@ import {
   Cpu,
   Layers
 } from "lucide-react"
-import type { ResolvedTarget } from "@/lib/api"
+import type { Assembly, AssemblyCallbackResponse } from "@/lib/api"
 
 interface AssemblyContextPanelProps {
-  target: ResolvedTarget
-  context: Record<string, unknown>
+  target: Assembly
+  context: AssemblyCallbackResponse | null
 }
 
 export function AssemblyContextPanel({ target, context }: AssemblyContextPanelProps) {
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case "Smart Storage Unit":
+      case "smart_storage_unit":
         return <Box className="size-5" />
-      case "Smart Gate":
+      case "smart_gate":
         return <Layers className="size-5" />
-      case "Smart Turret":
+      case "smart_turret":
         return <Cpu className="size-5" />
-      case "Network Node":
+      case "network_node":
         return <Cpu className="size-5" />
       default:
         return <Cpu className="size-5" />
@@ -34,13 +34,13 @@ export function AssemblyContextPanel({ target, context }: AssemblyContextPanelPr
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case "Smart Storage Unit":
+      case "smart_storage_unit":
         return "bg-blue-500/20 text-blue-400 border-blue-500/30"
-      case "Smart Gate":
+      case "smart_gate":
         return "bg-purple-500/20 text-purple-400 border-purple-500/30"
-      case "Smart Turret":
+      case "smart_turret":
         return "bg-red-500/20 text-red-400 border-red-500/30"
-      case "Network Node":
+      case "network_node":
         return "bg-green-500/20 text-green-400 border-green-500/30"
       default:
         return "bg-muted text-muted-foreground"
@@ -66,7 +66,7 @@ export function AssemblyContextPanel({ target, context }: AssemblyContextPanelPr
                 </Badge>
                 <span className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
                   <MapPin className="size-3" />
-                  {target.coordinates.system_id}: [{target.coordinates.x}, {target.coordinates.y}, {target.coordinates.z}]
+                  {target.world_position.system_id}: [{target.world_position.x}, {target.world_position.y}, {target.world_position.z}]
                 </span>
               </div>
             </div>
@@ -78,15 +78,26 @@ export function AssemblyContextPanel({ target, context }: AssemblyContextPanelPr
       </CardHeader>
 
       <CardContent>
-        <div className="flex items-start gap-2 rounded-lg border border-border bg-card p-3">
-          <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Assembly Context</p>
-            <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words font-mono text-xs text-muted-foreground">
-              {JSON.stringify(context, null, 2)}
-            </pre>
+        {context && (
+          <div className="space-y-3">
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-card p-3">
+              <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">{context.operator_prompt}</p>
+              </div>
+            </div>
+            {context.supported_commands && context.supported_commands.length > 0 && (
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Supported Commands</p>
+                <ul className="space-y-1">
+                  {context.supported_commands.map((cmd, i) => (
+                    <li key={i} className="text-sm text-foreground">{cmd}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   )

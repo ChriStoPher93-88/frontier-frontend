@@ -12,7 +12,7 @@ import { OperatorConsole } from "@/components/operator-console"
 import { ActionPlanPanel } from "@/components/action-plan-panel"
 import { AssemblyContextPanel } from "@/components/assembly-context-panel"
 import { ConnectionStatus } from "@/components/connection-status"
-import { api, type Assembly, type ChatResponse, type DraftActionPlan, type ResolvedTarget, type SignableActionBundle, APIError } from "@/lib/api"
+import { api, type Assembly, type ChatResponse, type DraftActionPlan, type SignableActionBundle, type AssemblyCallbackResponse, APIError } from "@/lib/api"
 import { AlertCircle, Terminal, Cpu } from "lucide-react"
 
 function AssemblyPageContent() {
@@ -26,14 +26,14 @@ function AssemblyPageContent() {
   const [assemblies, setAssemblies] = useState<Assembly[]>([])
   const [assembliesLoading, setAssembliesLoading] = useState(true)
   const [selectedAssemblyId, setSelectedAssemblyId] = useState<string>("")
-  const [assemblyContext, setAssemblyContext] = useState<Record<string, unknown> | null>(null)
+  const [assemblyContext, setAssemblyContext] = useState<AssemblyCallbackResponse | null>(null)
   
   // Chat state
   const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([])
   const [isLoading, setIsLoading] = useState(false)
   
   // Action plan state
-  const [resolvedTarget, setResolvedTarget] = useState<ResolvedTarget | null>(null)
+  const [resolvedTarget, setResolvedTarget] = useState<Assembly | null>(null)
   const [draftPlan, setDraftPlan] = useState<DraftActionPlan | null>(null)
   const [signableBundle, setSignableBundle] = useState<SignableActionBundle | null>(null)
   const [showSigningDialog, setShowSigningDialog] = useState(false)
@@ -72,21 +72,23 @@ function AssemblyPageContent() {
     if (assemblyId && isBackendConnected) {
       setSelectedAssemblyId(assemblyId)
       // Fetch assembly context
-      api.assemblyCallback({ assembly_id: assemblyId })
+      api.assemblyCallback({ 
+        assembly_id: assemblyId,
+        event_type: "assembly_open"
+      })
         .then(response => {
-          setAssemblyContext(response.context)
-          setResolvedTarget({
-            assembly_id: response.assembly.assembly_id,
-            name: response.assembly.name,
-            component_type: response.assembly.component_type,
-            coordinates: response.assembly.world_position,
-          })
+          setAssemblyContext(response)
+          // Find the assembly in the list for display
+          const assembly = assemblies.find(a => a.assembly_id === assemblyId)
+          if (assembly) {
+            setResolvedTarget(assembly)
+          }
         })
         .catch(error => {
           console.error("[v0] Failed to load assembly context:", error)
         })
     }
-  }, [searchParams, isBackendConnected])
+  }, [searchParams, isBackendConnected, assemblies])
 
   // Send chat command
   const sendCommand = async (message: string) => {

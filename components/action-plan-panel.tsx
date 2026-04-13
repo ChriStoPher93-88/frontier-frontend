@@ -13,10 +13,10 @@ import {
   AlertTriangle,
   Zap
 } from "lucide-react"
-import type { DraftActionPlan, ResolvedTarget } from "@/lib/api"
+import type { Assembly, DraftActionPlan } from "@/lib/api"
 
 interface ActionPlanPanelProps {
-  target: ResolvedTarget | null
+  target: Assembly | null
   plan: DraftActionPlan | null
   onApprove: () => Promise<void>
   isLoading: boolean
@@ -32,13 +32,13 @@ export function ActionPlanPanel({
 }: ActionPlanPanelProps) {
   const getTypeColor = (type: string) => {
     switch (type) {
-      case "Smart Storage Unit":
+      case "smart_storage_unit":
         return "bg-blue-500/20 text-blue-400 border-blue-500/30"
-      case "Smart Gate":
+      case "smart_gate":
         return "bg-purple-500/20 text-purple-400 border-purple-500/30"
-      case "Smart Turret":
+      case "smart_turret":
         return "bg-red-500/20 text-red-400 border-red-500/30"
-      case "Network Node":
+      case "network_node":
         return "bg-green-500/20 text-green-400 border-green-500/30"
       default:
         return "bg-muted text-muted-foreground"
@@ -82,7 +82,7 @@ export function ActionPlanPanel({
                   Coordinates
                 </span>
                 <span className="font-mono text-xs text-foreground">
-                  {target.coordinates.system_id}: [{target.coordinates.x}, {target.coordinates.y}, {target.coordinates.z}]
+                  {target.world_position.system_id}: [{target.world_position.x}, {target.world_position.y}, {target.world_position.z}]
                 </span>
               </div>
             </div>
@@ -128,14 +128,14 @@ export function ActionPlanPanel({
         </div>
 
         {/* Warnings */}
-        {plan?.requires_confirmation && (
+        {plan?.warnings && plan.warnings.length > 0 && (
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3">
             <AlertTriangle className="size-4 shrink-0 text-yellow-500" />
             <div className="text-xs">
-              <p className="font-medium text-yellow-500">Confirmation Required</p>
-              <p className="text-yellow-500/80">
-                This action requires explicit approval before execution
-              </p>
+              <p className="font-medium text-yellow-500">Warnings</p>
+              {plan.warnings.map((warning, i) => (
+                <p key={i} className="text-yellow-500/80">{warning}</p>
+              ))}
             </div>
           </div>
         )}
@@ -162,9 +162,9 @@ export function ActionPlanPanel({
           )}
         </Button>
         
-        {plan?.estimated_cost !== undefined && (
+        {plan?.resolved_summary && (
           <p className="mt-2 text-center text-xs text-muted-foreground">
-            Estimated cost: {plan.estimated_cost} units
+            {plan.resolved_summary}
           </p>
         )}
       </CardContent>

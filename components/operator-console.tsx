@@ -84,13 +84,13 @@ export function OperatorConsole({
 
   const getAssemblyTypeColor = (type: string) => {
     switch (type) {
-      case "Smart Storage Unit":
+      case "smart_storage_unit":
         return "bg-blue-500/20 text-blue-400 border-blue-500/30"
-      case "Smart Gate":
+      case "smart_gate":
         return "bg-purple-500/20 text-purple-400 border-purple-500/30"
-      case "Smart Turret":
+      case "smart_turret":
         return "bg-red-500/20 text-red-400 border-red-500/30"
-      case "Network Node":
+      case "network_node":
         return "bg-green-500/20 text-green-400 border-green-500/30"
       default:
         return "bg-muted text-muted-foreground"

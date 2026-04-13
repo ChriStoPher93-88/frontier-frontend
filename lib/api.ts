@@ -1,69 +1,80 @@
 // EVE Frontier dApp API Client
 // Uses NEXT_PUBLIC_API_BASE environment variable for all API calls
 
+export interface WorldPosition {
+  system_id: string
+  x: number
+  y: number
+  z: number
+  label?: string
+  source?: string
+}
+
 export interface Assembly {
   assembly_id: string
   name: string
-  component_type: "Smart Storage Unit" | "Smart Gate" | "Smart Turret" | "Network Node"
-  world_position: {
-    system_id: string
-    x: number
-    y: number
-    z: number
-  }
+  component_type: "smart_storage_unit" | "smart_gate" | "smart_turret" | "network_node"
+  world_position: WorldPosition
   status?: string
   owner?: string
 }
 
-export interface ResolvedTarget {
-  assembly_id: string
-  name: string
-  component_type: string
-  coordinates: {
-    system_id: string
-    x: number
-    y: number
-    z: number
-  }
+export interface Target {
+  component_type?: string
+  assembly_id?: string
+  world_position?: WorldPosition
+  label?: string
 }
 
 export interface DraftActionPlan {
-  actions: Array<{
-    type: string
-    target: string
-    params: Record<string, unknown>
-  }>
-  estimated_cost?: number
-  requires_confirmation?: boolean
+  target: Assembly
+  resolved_summary: string
+  warnings: string[]
+  signing_actions: string[]
+  command_family: string
+  intent: string
+  policy: Record<string, unknown>
+  market_scope?: {
+    reference_type: string
+  }
 }
 
 export interface ChatResponse {
   session_id: string
   assistant_reply: string
-  resolved_target?: ResolvedTarget
+  clarification_required: boolean
+  resolved_target?: Assembly
   draft_action_plan?: DraftActionPlan
   error?: string
 }
 
+export interface SignableActionBundle {
+  bundle_type: string
+  target_assembly_id: string
+  component_type: string
+  world_position: WorldPosition
+  action_plan: DraftActionPlan
+}
+
 export interface ApproveResponse {
-  success: boolean
+  status: string
   signable_action_bundle?: SignableActionBundle
   error?: string
 }
 
-export interface SignableActionBundle {
-  actions: Array<{
-    type: string
-    target: string
-    params: Record<string, unknown>
-  }>
-  nonce: string
-  timestamp: number
+export interface AssemblyCallbackResponse {
+  assembly_id: string
+  component_type: string
+  world_position: WorldPosition
+  event_type: string
+  operator_prompt: string
+  supported_commands: string[]
 }
 
-export interface AssemblyCallbackResponse {
-  assembly: Assembly
-  context: Record<string, unknown>
+export interface HealthResponse {
+  status: string
+  service: string
+  allowed_origins: string[]
 }
 
 class APIError extends Error {
@@ -135,6 +146,11 @@ async function fetchAPI<T>(
 }
 
 export const api = {
+  // GET /health - Health check endpoint
+  async health(): Promise<HealthResponse> {
+    return fetchAPI<HealthResponse>("/health")
+  },
+
   // GET /api/assemblies - Fetch all available assemblies
   async getAssemblies(): Promise<Assembly[]> {
     return fetchAPI<Assembly[]>("/api/assemblies")
@@ -145,7 +161,7 @@ export const api = {
     session_id?: string | null
     wallet_address?: string | null
     message: string
-    selected_target?: { assembly_id: string } | null
+    selected_target?: Target | null
   }): Promise<ChatResponse> {
     return fetchAPI<ChatResponse>("/api/operator/chat", {
       method: "POST",
@@ -167,16 +183,19 @@ export const api = {
   // POST /api/operator/reset-target - Clear the current target
   async resetTarget(params: {
     session_id: string
-  }): Promise<{ success: boolean; message?: string }> {
-    return fetchAPI<{ success: boolean; message?: string }>("/api/operator/reset-target", {
+  }): Promise<{ status: string }> {
+    return fetchAPI<{ status: string }>("/api/operator/reset-target", {
       method: "POST",
       body: JSON.stringify(params),
     })
   },
 
-  // POST /api/assembly/callback - Get assembly context
+  // POST /api/assembly/callback - Get assembly context for an assembly
   async assemblyCallback(params: {
     assembly_id: string
+    event_type: "assembly_open" | "status_poll" | "command_sync"
+    wallet_address?: string | null
+    payload?: Record<string, unknown>
   }): Promise<AssemblyCallbackResponse> {
     return fetchAPI<AssemblyCallbackResponse>("/api/assembly/callback", {
       method: "POST",
